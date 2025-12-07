@@ -17,6 +17,47 @@ def get_device():
         return torch.device("cuda")
     return torch.device("cpu")
 
+def train_epoch(model, loader, optimizer, criterion, device, epoch):
+    model.train()
+    running_loss = 0
+    correct = 0
+    total = 0
+    for batch_idx, (data, target) in enumerate(loader):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        _, predicted = torch.max(output, 1)
+        total += target.size(0)
+        correct += (predicted == target).sum().item()
+        if batch_idx % 100 == 0 and batch_idx != 0:
+            print(f'Epoch {epoch:03d}, Batch {batch_idx:03d}, Loss: {loss.item():.6f}')
+    train_loss = running_loss / len(loader)
+    train_accuracy = correct / total if total > 0 else 0
+    return train_loss, train_accuracy
+
+def test_epoch(model, loader, criterion, device):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, target in loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            loss = criterion(output, target)
+            test_loss += loss.item()
+            _, predicted = torch.max(output, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+    test_loss = test_loss / len(loader)
+    test_accuracy = correct / total if total > 0 else 0
+    print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
+    return test_loss, test_accuracy
+
 def main():
     learning_rate = 0.002
     epochs = 50
@@ -25,11 +66,13 @@ def main():
     config_used = "layer_config"
     categories_dir = os.getenv("CATEGORIES_DIR", "categories")
     model_config_path = os.getenv("CONFIG_PATH", "model_small.jsonc")
+
     # Load model config
     with open(model_config_path, "r") as f:
         model_config = json5.load(f)
     image_size = model_config["imageSize"]
     layer_config = model_config[config_used]
+
     # Prepare dataset
     transform = transforms.Compose([
         transforms.Resize((image_size, image_size)),
@@ -74,12 +117,7 @@ def main():
         else:
             clipped = idxs
         clipped_indices.extend(clipped)
-    # Rebuild targets for clipped set
-    clipped_targets = [dataset.imgs[i][1] for i in clipped_indices]
-    print("Class distribution after clipping:")
-    clipped_label_counts = Counter(clipped_targets)
-    for label, count in sorted(clipped_label_counts.items()):
-        print(f"  {class_names[label]}: {count} images")
+
     # Rebuild targets for clipped set
     clipped_targets = [dataset.imgs[i][1] for i in clipped_indices]
     print("Class distribution after clipping:")
@@ -100,45 +138,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     train_losses, train_accuracies = [], []
     test_losses, test_accuracies = [], []
-    def train_epoch(model, loader, optimizer, criterion, device, epoch):
-        model.train()
-        running_loss = 0
-        correct = 0
-        total = 0
-        for batch_idx, (data, target) in enumerate(loader):
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-            loss = criterion(output, target)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-            _, predicted = torch.max(output, 1)
-            total += target.size(0)
-            correct += (predicted == target).sum().item()
-            if batch_idx % 100 == 0 and batch_idx != 0:
-                print(f'Epoch {epoch:03d}, Batch {batch_idx:03d}, Loss: {loss.item():.6f}')
-        train_loss = running_loss / len(loader)
-        train_accuracy = correct / total if total > 0 else 0
-        return train_loss, train_accuracy
-    def test_epoch(model, loader, criterion, device):
-        model.eval()
-        test_loss = 0
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for data, target in loader:
-                data, target = data.to(device), target.to(device)
-                output = model(data)
-                loss = criterion(output, target)
-                test_loss += loss.item()
-                _, predicted = torch.max(output, 1)
-                total += target.size(0)
-                correct += (predicted == target).sum().item()
-        test_loss = test_loss / len(loader)
-        test_accuracy = correct / total if total > 0 else 0
-        print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
-        return test_loss, test_accuracy
+    
     for epoch in range(1, epochs + 1):
         print(f'\nEpoch {epoch}/{epochs}')
         train_loss, train_accuracy = train_epoch(model, train_loader, optimizer, criterion, device, epoch)
@@ -147,6 +147,7 @@ def main():
         test_loss, test_accuracy = test_epoch(model, test_loader, criterion, device)
         test_losses.append(test_loss)
         test_accuracies.append(test_accuracy)
+        
     # Save model
     model_path = os.getenv("MODEL_PATH", "trained_model.pth")
     torch.save(model.state_dict(), model_path)
