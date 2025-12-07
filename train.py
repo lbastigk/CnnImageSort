@@ -17,11 +17,12 @@ def get_device():
     return torch.device("cpu")
 
 def main():
-    config_used = "layer_config"
     learning_rate = 0.002
-    epochs = 200
+    epochs = 50
+
+    config_used = "layer_config"
     categories_dir = "categories"
-    model_config_path = "model.jsonc"
+    model_config_path = "model_small.jsonc"
     # Load model config
     with open(model_config_path, "r") as f:
         model_config = json5.load(f)
