@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import numpy as np
 from collections import Counter
 from PIL import Image
@@ -20,9 +21,10 @@ def main():
     learning_rate = 0.002
     epochs = 50
 
+    load_dotenv()
     config_used = "layer_config"
-    categories_dir = "categories"
-    model_config_path = "model_small.jsonc"
+    categories_dir = os.getenv("CATEGORIES_DIR", "categories")
+    model_config_path = os.getenv("CONFIG_PATH", "model_small.jsonc")
     # Load model config
     with open(model_config_path, "r") as f:
         model_config = json5.load(f)
@@ -35,6 +37,7 @@ def main():
     ])
     dataset = datasets.ImageFolder(root=categories_dir, transform=transform)
     print(f"Loaded dataset with {len(dataset)} samples.")
+
     # Build targets array, skipping unreadable images
     valid_indices = []
     targets = []
@@ -49,15 +52,46 @@ def main():
             print(f"Skipping corrupted image: {path}")
     targets = np.array(targets)
     class_names = dataset.classes
-    print("Class distribution:")
+    print("Class distribution before clipping:")
     label_counts = Counter(targets)
     for label, count in sorted(label_counts.items()):
         print(f"  {class_names[label]}: {count} images")
+
+    # Clip each class to the median count
+    from collections import defaultdict
+    import random
+    random.seed(42)
+    indices_by_class = defaultdict(list)
+    for idx, label in zip(valid_indices, targets):
+        indices_by_class[label].append(idx)
+    counts = [len(indices_by_class[label]) for label in range(len(class_names))]
+    median_count = int(np.median(counts))
+    print(f"Clipping each class to median count: {median_count}")
+    clipped_indices = []
+    for label, idxs in indices_by_class.items():
+        if len(idxs) > median_count:
+            clipped = random.sample(idxs, median_count)
+        else:
+            clipped = idxs
+        clipped_indices.extend(clipped)
+    # Rebuild targets for clipped set
+    clipped_targets = [dataset.imgs[i][1] for i in clipped_indices]
+    print("Class distribution after clipping:")
+    clipped_label_counts = Counter(clipped_targets)
+    for label, count in sorted(clipped_label_counts.items()):
+        print(f"  {class_names[label]}: {count} images")
+    # Rebuild targets for clipped set
+    clipped_targets = [dataset.imgs[i][1] for i in clipped_indices]
+    print("Class distribution after clipping:")
+    clipped_label_counts = Counter(clipped_targets)
+    for label, count in sorted(clipped_label_counts.items()):
+        print(f"  {class_names[label]}: {count} images")
+
     # Stratified split
     splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-    train_idx, test_idx = next(splitter.split(np.zeros(len(targets)), targets))
-    train_dataset = Subset(dataset, [valid_indices[i] for i in train_idx])
-    test_dataset = Subset(dataset, [valid_indices[i] for i in test_idx])
+    train_idx, test_idx = next(splitter.split(np.zeros(len(clipped_targets)), clipped_targets))
+    train_dataset = Subset(dataset, [clipped_indices[i] for i in train_idx])
+    test_dataset = Subset(dataset, [clipped_indices[i] for i in test_idx])
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     device = get_device()
@@ -113,16 +147,9 @@ def main():
         test_loss, test_accuracy = test_epoch(model, test_loader, criterion, device)
         test_losses.append(test_loss)
         test_accuracies.append(test_accuracy)
-    # Save last run info
-    with open("last_run.json", "w") as f:
-        json5.dump({
-            "last_test_accuracy": test_accuracies[-1],
-            "last_test_loss": test_losses[-1],
-            "epoch_size": epochs,
-            "learning_rate": learning_rate
-        }, f)
     # Save model
-    torch.save(model.state_dict(), "trained_model.pth")
-    print("Model saved to trained_model.pth")
+    model_path = os.getenv("MODEL_PATH", "trained_model.pth")
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved to {model_path}")
 if __name__ == "__main__":
     main()
