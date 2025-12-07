@@ -1,0 +1,8 @@
+numpy
+matplotlib
+torchsummary
+scikit-learn
+json5
+ipykernel
+opencv-python
+yt-dlp

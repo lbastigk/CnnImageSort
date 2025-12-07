@@ -1,0 +1,27 @@
+{
+  "imageSize": 96,
+  "layer_config" : [
+    { "type": "conv", "out_channels": 32,  "kernel_size": 3 },    // Basic edge detection
+    { "type": "batchnorm" },
+    { "type": "relu" },
+    { "type": "pool", "kernel_size": 2 },                         // 96 → 48
+    { "type": "conv", "out_channels": 64,  "kernel_size": 3 },    // Mid-level features
+    { "type": "batchnorm" },
+    { "type": "relu" },
+    { "type": "pool", "kernel_size": 2 },                         // 48 → 24
+    { "type": "conv", "out_channels": 128, "kernel_size": 3 },    // Shapes/contours
+    { "type": "batchnorm" },
+    { "type": "relu" },
+    { "type": "pool", "kernel_size": 2 },                         // 24 → 12
+    { "type": "conv", "out_channels": 256, "kernel_size": 3 },    // Deep semantic features
+    { "type": "batchnorm" },
+    { "type": "relu" },
+    { "type": "pool", "kernel_size": 2 },                         // 12 → 6
+    { "type": "linear", "out_features": 256 },                    // Classifier head
+    { "type": "dropout", "rate": 0.5 },
+    { "type": "relu" },
+    { "type": "linear", "out_features": 64 },
+    { "type": "dropout", "rate": 0.4 },
+    { "type": "relu" }
+  ]
+}
