@@ -25,13 +25,28 @@ def load_model(model_path, config_path):
     model.eval()
     return model, class_names, image_size
 
-def sort_images():
+def load_pretrained_model():
+    from torchvision import models
+    import json
+    # Load pretrained ResNet18 with ImageNet categories
+    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    model.eval()
+    image_size = 224  # Standard for ResNet
+    # Load ImageNet class names
+    # torchvision provides a meta for weights with categories
+    class_names = list(models.ResNet18_Weights.DEFAULT.meta["categories"])
+    return model, class_names, image_size
+
+def sort_images(use_pretrained=False):
     load_dotenv()
     model_path = os.getenv("MODEL_PATH", "trained_model.pth")
     config_path = os.getenv("CONFIG_PATH", "model_small.jsonc")
     tosort_dir = os.getenv("TOSORT_DIR", "tosort")
     suggestions_dir = os.getenv("SUGGESTIONS_DIR", "suggestions")
-    model, class_names, image_size = load_model(model_path, config_path)
+    if use_pretrained:
+        model, class_names, image_size = load_pretrained_model()
+    else:
+        model, class_names, image_size = load_model(model_path, config_path)
     device = get_device()
     model = model.to(device)
     transform = transforms.Compose([
@@ -60,4 +75,8 @@ def sort_images():
         shutil.move(fpath, dest_path)
         print(f"Sorted {fname} -> {pred_cat}")
 if __name__ == "__main__":
-    sort_images()
+    import argparse
+    parser = argparse.ArgumentParser(description="Sort images using CNN model.")
+    parser.add_argument('--pretrained', action='store_true', help='Use pretrained ResNet18 model')
+    args = parser.parse_args()
+    sort_images(use_pretrained=args.pretrained)
