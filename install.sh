@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Make sure the script is not run as root
+if [ "$EUID" -eq 0 ]; then
+    echo "Sudo user detected. Please do not run this script as root."
+    exit 1
+fi
+
 # CPU or GPU
 type="gpu"
 
@@ -10,9 +16,9 @@ fi
 
 if [ "$type" == "cpu" ]; then
     #######################################################
-    # Erstelle und aktiviere die virtuelle Umgebung für cpu
+    # Create and activate the virtual environment for cpu
     #######################################################
-    echo "Installation wird nur für CPU durchgeführt."
+    echo "Installing for CPU only."
 
     deactivate
     rm -rf .venv
@@ -20,24 +26,24 @@ if [ "$type" == "cpu" ]; then
     source .venv/bin/activate
 
     echo ""
-    echo "Installation für CPU läuft..."
+    echo "Installation for CPU is running..."
     echo ""
     pip install --upgrade pip           > /dev/null 2>&1
     pip install -r requirements.txt     > /dev/null 2>&1
     pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu > /dev/null 2>&1
 
     echo "-----------------------------------"
-    echo "Installation für CPU abgeschlossen."
+    echo "Installation for CPU completed."
     echo ""
-    echo "Pakete:"
+    echo "Packages:"
     echo ""
     pip list
 
 else
     #######################################################
-    # Erstelle und aktiviere die virtuelle Umgebung für gpu
+    # Create and activate the virtual environment for gpu
     #######################################################
-    echo "Installation wird für CPU und GPU durchgeführt."
+    echo "Installing for CPU and GPU."
 
     deactivate
     rm -rf .venv
@@ -45,7 +51,7 @@ else
     source .venv/bin/activate
 
     echo ""
-    echo "Installation für GPU läuft..."
+    echo "Installation for GPU is running..."
     echo ""
     pip install --upgrade pip           > /dev/null 2>&1
     pip install -r requirements.txt     > /dev/null 2>&1
@@ -61,10 +67,11 @@ else
         echo "No supported GPU detected. Defaulting to CPU."
         pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu > /dev/null 2>&1
     fi
+
+    echo "-----------------------------------"
+    echo "Installation for GPU completed."
+    echo ""
+    echo "Packages:"
+    echo ""
+    pip list
 fi
-echo "-----------------------------------"
-echo "Installation für GPU abgeschlossen."
-echo ""
-echo "Pakete:"
-echo ""
-pip list
