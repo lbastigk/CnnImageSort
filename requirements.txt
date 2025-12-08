@@ -6,3 +6,4 @@ json5
 ipykernel
 opencv-python
 yt-dlp
+dotenv
