@@ -59,10 +59,13 @@ def test_epoch(model, loader, criterion, device):
     return test_loss, test_accuracy
 
 def main():
-    learning_rate = 0.002
-    epochs = 50
-
     load_dotenv()
+
+    # Hyperparameters
+    learning_rate = float(os.getenv("TRAIN_LEARNING_RATE", 0.001))
+    epochs = int(os.getenv("TRAIN_EPOCHS", 50))
+
+    # Model and data configuration
     config_used = "layer_config"
     categories_dir = os.getenv("CATEGORIES_DIR", "categories")
     model_config_path = os.getenv("CONFIG_PATH", "model_small.jsonc")
@@ -147,7 +150,7 @@ def main():
         test_loss, test_accuracy = test_epoch(model, test_loader, criterion, device)
         test_losses.append(test_loss)
         test_accuracies.append(test_accuracy)
-        
+
     # Save model
     model_path = os.getenv("MODEL_PATH", "trained_model.pth")
     torch.save(model.state_dict(), model_path)
